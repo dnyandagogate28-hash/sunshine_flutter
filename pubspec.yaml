@@ -73,7 +73,7 @@ dependencies:
   # PDF Generation & File Handling
   pdf: ^3.10.6
   path_provider: ^2.1.1
-  open_file: ^3.5.4
+  url_launcher: ^6.2.0
   
   # Native Splash Screen
   flutter_native_splash: ^2.4.0

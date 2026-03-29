@@ -59,14 +59,15 @@ class FirestoreService {
         .orderBy("createdAt", descending: true)
         .snapshots()
         .map((snapshot) {
-      // Client-side case-insensitive filtering
-      return snapshot.docs
-          .where((doc) =>
-              (doc['destination'] as String)
-                  .toLowerCase()
-                  .contains(lowercaseQuery))
-          .toList();
-    });
+          // Client-side case-insensitive filtering
+          return snapshot.docs
+              .where(
+                (doc) => (doc['destination'] as String).toLowerCase().contains(
+                  lowercaseQuery,
+                ),
+              )
+              .toList();
+        });
   }
 
   /// Update travel plan
@@ -206,6 +207,22 @@ class FirestoreService {
   Future<UserModel?> getCurrentUserProfile() async {
     if (_userId.isEmpty) return null;
     return getUserProfile(_userId);
+  }
+
+  /// Update user profile (name and bio)
+  Future<void> updateUserProfile({
+    required String userId,
+    required String name,
+    required String bio,
+  }) async {
+    try {
+      await _db.collection("users").doc(userId).update({
+        "name": name,
+        "bio": bio,
+      });
+    } catch (e) {
+      throw "Error updating user profile: $e";
+    }
   }
 
   /// Add saved plan to user

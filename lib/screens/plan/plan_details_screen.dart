@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../models/travel_plan_model.dart';
 import '../../models/review_model.dart';
 import '../../services/firestore_service.dart';
@@ -17,7 +18,6 @@ import 'package:flutter/gestures.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
-import 'package:open_file/open_file.dart';
 import 'dart:io';
 
 import 'dart:convert';
@@ -41,7 +41,6 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   String? _monumentImageUrl;
   bool _isFetchingMonument = false;
 
-
   @override
   void initState() {
     super.initState();
@@ -52,20 +51,18 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     _planFuture.then((plan) async {
       if (plan != null && mounted && !_isFetchingMonument) {
         _isFetchingMonument = true;
-    
-        final image =
-            await _fetchBestMonumentImage(plan.destination);
-    
+
+        final image = await _fetchBestMonumentImage(plan.destination);
+
         if (mounted && image != null) {
           setState(() {
             _monumentImageUrl = image;
           });
         }
-    
+
         _isFetchingMonument = false;
       }
     });
-
   }
 
   void _fitMapToRoute(List<LatLngPoint> routePoints) {
@@ -299,37 +296,33 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       print('Using default route (direct waypoints)');
     }
   }
+
   Future<String?> _fetchBestMonumentImage(String destination) async {
     try {
       final apiKey = EnvConfig.googleMapsApiKey;
-  
+
       if (apiKey.isEmpty) {
         print("Places API key missing");
         return null;
       }
-  
+
       final searchUrl =
           "https://maps.googleapis.com/maps/api/place/textsearch/json"
           "?query=${Uri.encodeComponent(destination + " famous monument")}"
           "&type=tourist_attraction"
           "&key=$apiKey";
-  
+
       final response = await http.get(Uri.parse(searchUrl));
-  
+
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
-  
-        if (json["results"] != null &&
-            json["results"].isNotEmpty) {
-  
+
+        if (json["results"] != null && json["results"].isNotEmpty) {
           final firstPlace = json["results"][0];
-  
-          if (firstPlace["photos"] != null &&
-              firstPlace["photos"].isNotEmpty) {
-  
-            final photoReference =
-                firstPlace["photos"][0]["photo_reference"];
-  
+
+          if (firstPlace["photos"] != null && firstPlace["photos"].isNotEmpty) {
+            final photoReference = firstPlace["photos"][0]["photo_reference"];
+
             return "https://maps.googleapis.com/maps/api/place/photo"
                 "?maxwidth=1200"
                 "&photo_reference=$photoReference"
@@ -340,46 +333,8 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     } catch (e) {
       print("Monument fetch error: $e");
     }
-  
+
     return null;
-  }
-
-
-  String _getDestinationImageUrl(String destination, TravelPlan plan) {
-    // Use the best/first popular place's dynamically fetched image
-    try {
-      if (destination.isEmpty) {
-        print('❌ Destination name is empty');
-        return 'https://via.placeholder.com/800x600/FF9800/ffffff?text=No+Destination';
-      }
-
-      print('\n📸 FETCHING DESTINATION LANDMARK IMAGE');
-      print('   Destination: $destination');
-
-      // PRIORITY 1: Use the best/first popular place's image if available
-      if (plan.popularPlaces.isNotEmpty) {
-        final bestMonument =
-            plan.popularPlaces.first; // First place is the "best" monument
-        if (bestMonument.imageUrl != null &&
-            bestMonument.imageUrl!.isNotEmpty) {
-          print('✓ Using Best Monument Image: ${bestMonument.name}');
-          print('   Image URL: ${bestMonument.imageUrl}');
-          print('   Category: ${bestMonument.category}');
-          return bestMonument.imageUrl!;
-        }
-      }
-
-      // FALLBACK: Use a generic destination landmark image from Unsplash
-      final fallbackUrl =
-          'https://source.unsplash.com/600x400/?${Uri.encodeComponent(destination)},landmark,monument';
-      print('✓ Using Dynamic Destination Landmark Image');
-      print('   URL: $fallbackUrl');
-
-      return fallbackUrl;
-    } catch (e) {
-      print('❌ Error generating landmark image URL: $e');
-      return 'https://via.placeholder.com/800x600/FF9800/ffffff?text=Destination+Image';
-    }
   }
 
   void _submitReview(TravelPlan plan) async {
@@ -463,9 +418,9 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
 
   Future<void> _generateAndDownloadPDF(TravelPlan plan) async {
     try {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Generating PDF...')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Generating PDF...')));
 
       final pdf = pw.Document();
 
@@ -483,7 +438,10 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                   padding: const pw.EdgeInsets.only(bottom: 20),
                   decoration: pw.BoxDecoration(
                     border: pw.Border(
-                      bottom: pw.BorderSide(width: 2, color: PdfColor.fromInt(0xFFFF9800)),
+                      bottom: pw.BorderSide(
+                        width: 2,
+                        color: PdfColor.fromInt(0xFFFF9800),
+                      ),
                     ),
                   ),
                   child: pw.Column(
@@ -582,23 +540,27 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                         ),
                         pw.SizedBox(height: 5),
                         ..._getBulletPoints(entry.value)
-                            .map((point) => pw.Padding(
-                                  padding: const pw.EdgeInsets.only(bottom: 4),
-                                  child: pw.Row(
-                                    crossAxisAlignment:
-                                        pw.CrossAxisAlignment.start,
-                                    children: [
-                                      pw.Text('• ',
-                                          style: const pw.TextStyle(
-                                              fontSize: 10)),
-                                      pw.Expanded(
-                                        child: pw.Text(point,
-                                            style: const pw.TextStyle(
-                                                fontSize: 10)),
+                            .map(
+                              (point) => pw.Padding(
+                                padding: const pw.EdgeInsets.only(bottom: 4),
+                                child: pw.Row(
+                                  crossAxisAlignment:
+                                      pw.CrossAxisAlignment.start,
+                                  children: [
+                                    pw.Text(
+                                      '• ',
+                                      style: const pw.TextStyle(fontSize: 10),
+                                    ),
+                                    pw.Expanded(
+                                      child: pw.Text(
+                                        point,
+                                        style: const pw.TextStyle(fontSize: 10),
                                       ),
-                                    ],
-                                  ),
-                                ))
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
                             .toList(),
                       ],
                     ),
@@ -632,23 +594,26 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: _getBulletPoints(plan.placesList)
-                        .map((point) => pw.Padding(
-                              padding: const pw.EdgeInsets.only(bottom: 6),
-                              child: pw.Row(
-                                crossAxisAlignment:
-                                    pw.CrossAxisAlignment.start,
-                                children: [
-                                  pw.Text('• ',
-                                      style:
-                                          const pw.TextStyle(fontSize: 10)),
-                                  pw.Expanded(
-                                    child: pw.Text(point,
-                                        style:
-                                            const pw.TextStyle(fontSize: 10)),
+                        .map(
+                          (point) => pw.Padding(
+                            padding: const pw.EdgeInsets.only(bottom: 6),
+                            child: pw.Row(
+                              crossAxisAlignment: pw.CrossAxisAlignment.start,
+                              children: [
+                                pw.Text(
+                                  '• ',
+                                  style: const pw.TextStyle(fontSize: 10),
+                                ),
+                                pw.Expanded(
+                                  child: pw.Text(
+                                    point,
+                                    style: const pw.TextStyle(fontSize: 10),
                                   ),
-                                ],
-                              ),
-                            ))
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
                         .toList(),
                   ),
                 ),
@@ -680,23 +645,26 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: _getBulletPoints(plan.dayWiseBudget)
-                        .map((point) => pw.Padding(
-                              padding: const pw.EdgeInsets.only(bottom: 6),
-                              child: pw.Row(
-                                crossAxisAlignment:
-                                    pw.CrossAxisAlignment.start,
-                                children: [
-                                  pw.Text('• ',
-                                      style:
-                                          const pw.TextStyle(fontSize: 10)),
-                                  pw.Expanded(
-                                    child: pw.Text(point,
-                                        style:
-                                            const pw.TextStyle(fontSize: 10)),
+                        .map(
+                          (point) => pw.Padding(
+                            padding: const pw.EdgeInsets.only(bottom: 6),
+                            child: pw.Row(
+                              crossAxisAlignment: pw.CrossAxisAlignment.start,
+                              children: [
+                                pw.Text(
+                                  '• ',
+                                  style: const pw.TextStyle(fontSize: 10),
+                                ),
+                                pw.Expanded(
+                                  child: pw.Text(
+                                    point,
+                                    style: const pw.TextStyle(fontSize: 10),
                                   ),
-                                ],
-                              ),
-                            ))
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
                         .toList(),
                   ),
                 ),
@@ -728,23 +696,26 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: _getBulletPoints(plan.transportation)
-                        .map((point) => pw.Padding(
-                              padding: const pw.EdgeInsets.only(bottom: 6),
-                              child: pw.Row(
-                                crossAxisAlignment:
-                                    pw.CrossAxisAlignment.start,
-                                children: [
-                                  pw.Text('• ',
-                                      style:
-                                          const pw.TextStyle(fontSize: 10)),
-                                  pw.Expanded(
-                                    child: pw.Text(point,
-                                        style:
-                                            const pw.TextStyle(fontSize: 10)),
+                        .map(
+                          (point) => pw.Padding(
+                            padding: const pw.EdgeInsets.only(bottom: 6),
+                            child: pw.Row(
+                              crossAxisAlignment: pw.CrossAxisAlignment.start,
+                              children: [
+                                pw.Text(
+                                  '• ',
+                                  style: const pw.TextStyle(fontSize: 10),
+                                ),
+                                pw.Expanded(
+                                  child: pw.Text(
+                                    point,
+                                    style: const pw.TextStyle(fontSize: 10),
                                   ),
-                                ],
-                              ),
-                            ))
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
                         .toList(),
                   ),
                 ),
@@ -776,23 +747,26 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: _getBulletPoints(plan.hotelsRestaurants)
-                        .map((point) => pw.Padding(
-                              padding: const pw.EdgeInsets.only(bottom: 6),
-                              child: pw.Row(
-                                crossAxisAlignment:
-                                    pw.CrossAxisAlignment.start,
-                                children: [
-                                  pw.Text('• ',
-                                      style:
-                                          const pw.TextStyle(fontSize: 10)),
-                                  pw.Expanded(
-                                    child: pw.Text(point,
-                                        style:
-                                            const pw.TextStyle(fontSize: 10)),
+                        .map(
+                          (point) => pw.Padding(
+                            padding: const pw.EdgeInsets.only(bottom: 6),
+                            child: pw.Row(
+                              crossAxisAlignment: pw.CrossAxisAlignment.start,
+                              children: [
+                                pw.Text(
+                                  '• ',
+                                  style: const pw.TextStyle(fontSize: 10),
+                                ),
+                                pw.Expanded(
+                                  child: pw.Text(
+                                    point,
+                                    style: const pw.TextStyle(fontSize: 10),
                                   ),
-                                ],
-                              ),
-                            ))
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
                         .toList(),
                   ),
                 ),
@@ -804,10 +778,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
               pw.SizedBox(height: 10),
               pw.Text(
                 'Generated on ${DateTime.now().toString().split('.')[0]}',
-                style: const pw.TextStyle(
-                  fontSize: 9,
-                  color: PdfColors.grey,
-                ),
+                style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey),
               ),
             ];
           },
@@ -817,11 +788,11 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       // Get app cache directory (no permissions needed)
       final appCacheDir = await getApplicationCacheDirectory();
       print('App Cache Directory: ${appCacheDir.path}');
-      
+
       // Create Travel Plans subfolder
       final travelPlansDir = Directory('${appCacheDir.path}/TravelPlans');
       print('Travel Plans Directory: ${travelPlansDir.path}');
-      
+
       if (!await travelPlansDir.exists()) {
         print('Creating TravelPlans folder...');
         await travelPlansDir.create(recursive: true);
@@ -835,19 +806,19 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
           'travel_plan_${plan.destination.replaceAll(' ', '_')}_${DateTime.now().millisecondsSinceEpoch}.pdf';
       final filePath = '${travelPlansDir.path}/$fileName';
       final file = File(filePath);
-      
+
       print('Saving PDF to: $filePath');
       final pdfBytes = await pdf.save();
       await file.writeAsBytes(pdfBytes);
-      
+
       print('PDF saved successfully');
       print('File size: ${file.lengthSync()} bytes');
       print('File exists: ${await file.exists()}');
 
       if (!mounted) return;
-      
+
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
@@ -857,23 +828,34 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('✓ PDF Downloaded!', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text(
+                    '✓ PDF Downloaded!',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 4),
-                  Text(fileName, style: const TextStyle(fontSize: 10, fontFamily: 'monospace')),
+                  Text(
+                    fileName,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
                 ],
               ),
               ElevatedButton.icon(
                 onPressed: () async {
                   print('Opening PDF: $filePath');
-                  final result = await OpenFile.open(filePath);
-                  print('Open file result: ${result.type}');
+                  await launchUrl(Uri.file(filePath));
                 },
                 icon: const Icon(Icons.open_in_new, size: 18),
                 label: const Text('Open', style: TextStyle(fontSize: 12)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
                   foregroundColor: AppColors.success,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                 ),
               ),
             ],
@@ -892,7 +874,13 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('❌ Download Error', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+              const Text(
+                '❌ Download Error',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red,
+                ),
+              ),
               const SizedBox(height: 6),
               SelectableText(
                 'Error: $e',
@@ -1166,90 +1154,122 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
               bottomLeft: Radius.circular(16),
               bottomRight: Radius.circular(16),
             ),
-            child: CachedNetworkImage(
-              imageUrl: _monumentImageUrl ?? _getDestinationImageUrl(plan.destination, plan),
-              fit: BoxFit.cover,
-              cacheKey: 'destination_${plan.id}',
-              memCacheHeight: 600,
-              memCacheWidth: 800,
-              progressIndicatorBuilder: (context, url, downloadProgress) {
-                return Container(
-                  color: AppColors.veryLightGrey,
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircularProgressIndicator(
-                          value: downloadProgress.progress,
+            child: _monumentImageUrl != null && _monumentImageUrl!.isNotEmpty
+                ? CachedNetworkImage(
+                    imageUrl: _monumentImageUrl!,
+                    fit: BoxFit.cover,
+                    cacheKey: 'destination_${plan.id}',
+                    memCacheHeight: 600,
+                    memCacheWidth: 800,
+                    progressIndicatorBuilder: (context, url, downloadProgress) {
+                      return Container(
+                        color: AppColors.veryLightGrey,
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              CircularProgressIndicator(
+                                value: downloadProgress.progress,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Loading ${plan.destination} landmark...',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Loading ${plan.destination} landmark...',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-              errorWidget: (context, url, error) {
-                print('\n❌ LANDMARK IMAGE LOAD FAILED');
-                print('   Destination: ${plan.destination}');
-                print('   URL: $url');
-                print('   Error type: ${error.runtimeType}');
-                print('   Error: $error');
+                      );
+                    },
+                    errorWidget: (context, url, error) {
+                      print('\n❌ LANDMARK IMAGE LOAD FAILED');
+                      print('   Destination: ${plan.destination}');
+                      print('   URL: $url');
+                      print('   Error type: ${error.runtimeType}');
+                      print('   Error: $error');
 
-                // Return a beautiful gradient as fallback with destination name
-                return Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        AppColors.darkOrange.withOpacity(0.8),
-                        AppColors.darkOrange.withOpacity(0.5),
-                      ],
-                    ),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.landscape,
-                        size: 100,
-                        color: Colors.white.withOpacity(0.7),
-                      ),
-                      const SizedBox(height: 16),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                      // Return a beautiful gradient as fallback with destination name
+                      return Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              AppColors.darkOrange.withOpacity(0.8),
+                              AppColors.darkOrange.withOpacity(0.5),
+                            ],
+                          ),
+                        ),
                         child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(
-                              plan.destination,
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.headlineSmall
-                                  ?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                            Icon(
+                              Icons.landscape,
+                              size: 100,
+                              color: Colors.white.withOpacity(0.7),
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Your Travel Destination',
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: Colors.white.withOpacity(0.8),
+                            const SizedBox(height: 16),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                              ),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    plan.destination,
+                                    textAlign: TextAlign.center,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .headlineSmall
+                                        ?.copyWith(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                   ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Your Travel Destination',
+                                    textAlign: TextAlign.center,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
+                                          color: Colors.white.withOpacity(0.8),
+                                        ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
+                      );
+                    },
+                  )
+                : Container(
+                    color: AppColors.veryLightGrey,
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.landscape,
+                            size: 100,
+                            color: Colors.grey.withOpacity(0.7),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            plan.destination,
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(
+                                  color: Colors.grey,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                );
-              },
-            ),
           ),
           // Gradient overlay
           Positioned(
@@ -1485,11 +1505,12 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                   SizedBox(
                     height: 400,
                     child: GoogleMap(
-                      gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-                        Factory<OneSequenceGestureRecognizer>(
-                          () => EagerGestureRecognizer(),
-                        ),
-                      },
+                      gestureRecognizers:
+                          <Factory<OneSequenceGestureRecognizer>>{
+                            Factory<OneSequenceGestureRecognizer>(
+                              () => EagerGestureRecognizer(),
+                            ),
+                          },
                       key: ValueKey(
                         'detailed_map_${widget.planId}_${_routePolylinePoints.length}',
                       ),
@@ -1504,8 +1525,8 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                         ),
                         zoom: 8,
                       ),
-                      myLocationEnabled: true,
-                      myLocationButtonEnabled: true,
+                      myLocationEnabled: false,
+                      myLocationButtonEnabled: false,
                       zoomControlsEnabled: false,
                       compassEnabled: true,
                       mapToolbarEnabled: true,
@@ -1739,7 +1760,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       'overview',
       'introduction',
       'about the trip',
-      'trip summary'
+      'trip summary',
     ];
     // ignore: unused_local_variable
     const accommodationKeywords = [
@@ -1750,10 +1771,16 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       'restaurant',
       'food',
       'meals',
-      'stay'
+      'stay',
     ];
     // ignore: unused_local_variable
-    const budgetKeywords = ['budget', 'cost', 'price', 'expense', 'expenditure'];
+    const budgetKeywords = [
+      'budget',
+      'cost',
+      'price',
+      'expense',
+      'expenditure',
+    ];
     // ignore: unused_local_variable
     const attractionsKeywords = [
       'attraction',
@@ -1761,7 +1788,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       'sights',
       'landmark',
       'monument',
-      'visit'
+      'visit',
     ];
     // ignore: unused_local_variable
     const travelTipsKeywords = [
@@ -1769,7 +1796,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       'advice',
       'recommendation',
       'suggestion',
-      'travel tip'
+      'travel tip',
     ];
     // ignore: unused_local_variable
     const safetyKeywords = [
@@ -1778,7 +1805,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       'guideline',
       'health',
       'practical',
-      'information'
+      'information',
     ];
     // ignore: unused_local_variable
     const travelOptionsKeywords = [
@@ -1789,7 +1816,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       'bus',
       'departure',
       'arrival',
-      'mode of transport'
+      'mode of transport',
     ];
     // ignore: unused_local_variable
     const dayKeywords = ['day', 'hour'];
@@ -1847,8 +1874,10 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
           lowerLine.contains('mode of transport')) {
         currentSection = 'travel_options';
         continue;
-      } else if (RegExp(r'^\s*(Day|Hour)\s*\d+', multiLine: true)
-          .hasMatch(line)) {
+      } else if (RegExp(
+        r'^\s*(Day|Hour)\s*\d+',
+        multiLine: true,
+      ).hasMatch(line)) {
         currentSection = 'day_wise';
       }
 
@@ -1873,28 +1902,28 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   /// Extract bullet points from content
   List<String> _parseToBulletPoints(String content) {
     final bulletPoints = <String>[];
-    
+
     // Split by newlines
     final lines = content.split('\n');
-    
+
     for (final line in lines) {
       final trimmed = line.trim();
       if (trimmed.isEmpty) continue;
-      
+
       // Remove existing bullet characters if any
       String cleanedLine = trimmed
           .replaceAll(RegExp(r'^[•\-✓*]+\s*'), '')
           .replaceAll(RegExp(r'^\d+\.\s*'), '')
           .trim();
-          
+
       // Remove asterisks used for markdown bold
       cleanedLine = cleanedLine.replaceAll('**', '').replaceAll('*', '');
-      
+
       if (cleanedLine.isNotEmpty) {
         bulletPoints.add(cleanedLine);
       }
     }
-    
+
     return bulletPoints.isEmpty ? [content] : bulletPoints;
   }
 
@@ -1927,12 +1956,16 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
           ),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: (headerColor ?? AppColors.orange).withAlpha((0.3 * 255).toInt()),
+            color: (headerColor ?? AppColors.orange).withAlpha(
+              (0.3 * 255).toInt(),
+            ),
             width: 1.5,
           ),
           boxShadow: [
             BoxShadow(
-              color: (headerColor ?? AppColors.orange).withAlpha((0.1 * 255).toInt()),
+              color: (headerColor ?? AppColors.orange).withAlpha(
+                (0.1 * 255).toInt(),
+              ),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -1944,10 +1977,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
             // Section Header with Icon
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 14,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
                 color: (headerColor ?? AppColors.orange).withAlpha(
                   (0.2 * 255).toInt(),
@@ -1969,9 +1999,9 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                     child: Text(
                       title,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: headerColor ?? AppColors.darkOrange,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        color: headerColor ?? AppColors.darkOrange,
+                        fontWeight: FontWeight.bold,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -1996,8 +2026,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                                 width: 6,
                                 height: 6,
                                 decoration: BoxDecoration(
-                                  color:
-                                      headerColor ?? AppColors.darkOrange,
+                                  color: headerColor ?? AppColors.darkOrange,
                                   shape: BoxShape.circle,
                                 ),
                               ),
@@ -2005,12 +2034,9 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                             Expanded(
                               child: Text(
                                 point,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyMedium
-                                    ?.copyWith(
-                                      height: 1.4,
-                                    ),
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.bodyMedium?.copyWith(height: 1.4),
                               ),
                             ),
                           ],
@@ -2037,7 +2063,10 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     String cleaned = text
         .replaceAll(RegExp(r'\*+'), '') // Remove all asterisks
         .replaceAll(RegExp(r'\*\*'), '') // Remove markdown bold markers
-        .replaceAll(RegExp(r'\s+'), ' ') // Replace multiple spaces with single space
+        .replaceAll(
+          RegExp(r'\s+'),
+          ' ',
+        ) // Replace multiple spaces with single space
         .trim();
 
     // Split by lines while preserving structure
@@ -2084,10 +2113,12 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         );
 
         // Process content (already cleaned of asterisks)
-        spans.add(TextSpan(
-          text: content,
-          style: TextStyle(color: AppColors.black),
-        ));
+        spans.add(
+          TextSpan(
+            text: content,
+            style: TextStyle(color: AppColors.black),
+          ),
+        );
         spans.add(TextSpan(text: '\n\n'));
         continue;
       }
@@ -2109,19 +2140,23 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
           ),
         );
 
-        spans.add(TextSpan(
-          text: content,
-          style: TextStyle(color: AppColors.black),
-        ));
+        spans.add(
+          TextSpan(
+            text: content,
+            style: TextStyle(color: AppColors.black),
+          ),
+        );
         spans.add(TextSpan(text: '\n'));
         continue;
       }
 
       // Regular line
-      spans.add(TextSpan(
-        text: trimmedLine,
-        style: TextStyle(color: AppColors.black),
-      ));
+      spans.add(
+        TextSpan(
+          text: trimmedLine,
+          style: TextStyle(color: AppColors.black),
+        ),
+      );
       spans.add(TextSpan(text: '\n'));
     }
 
@@ -2166,33 +2201,33 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   // ignore: unused_element
   List<Map<String, String>> _parseDescriptionIntoDays(String description) {
     final List<Map<String, String>> daysList = [];
-    
+
     // Pattern to match "Day X:" or "Hour X:" or "Day X -" or similar
     final dayPattern = RegExp(
       r'(?:^|\n)\s*(?:Day|day|DAY|Hour|hour|HOUR)\s*[\d]+\s*[:\-]?\s*',
       multiLine: true,
     );
-    
+
     final splits = description.split(dayPattern);
-    
+
     // Extract day/hour headers
     final matches = dayPattern.allMatches(description).toList();
-    
+
     if (splits.isEmpty || (splits.length == 1 && matches.isEmpty)) {
       // No day/hour pattern found, return whole description as single item
       return [
-        {'title': 'Trip Overview', 'content': description.trim()}
+        {'title': 'Trip Overview', 'content': description.trim()},
       ];
     }
-    
+
     // Process splits and matches together
     for (int i = 0; i < splits.length; i++) {
       final content = splits[i].trim();
-      
+
       if (content.isEmpty) continue;
-      
+
       String title = 'Day ${i + 1}';
-      
+
       // Try to extract day number from original matches if available
       if (i < matches.length) {
         final matchText = matches[i].group(0) ?? '';
@@ -2206,17 +2241,14 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
           }
         }
       }
-      
-      daysList.add({
-        'title': title,
-        'content': content,
-      });
+
+      daysList.add({'title': title, 'content': content});
     }
-    
+
     return daysList.isNotEmpty
         ? daysList
         : [
-            {'title': 'Trip Overview', 'content': description.trim()}
+            {'title': 'Trip Overview', 'content': description.trim()},
           ];
   }
 

@@ -4,11 +4,13 @@ import 'theme/app_theme.dart';
 import 'screens/splash_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/auth/profile_screen.dart';
+import 'screens/auth/edit_profile_screen.dart';
 import 'screens/home/create_plan_screen.dart';
 import 'screens/browse/browse_plans_screen.dart';
 import 'screens/plan/plan_details_screen.dart';
 import 'screens/chatbot/chatbot_screen.dart';
 import 'screens/auth/login_screen.dart';
+import 'models/user_model.dart';
 
 class SunshineApp extends StatelessWidget {
   const SunshineApp({super.key});
@@ -42,6 +44,14 @@ class SunshineApp extends StatelessWidget {
         if (planId != null) {
           return MaterialPageRoute(
             builder: (_) => PlanDetailsScreen(planId: planId),
+          );
+        }
+        return null;
+      case '/edit-profile':
+        final user = settings.arguments as UserModel?;
+        if (user != null) {
+          return MaterialPageRoute(
+            builder: (_) => EditProfileScreen(user: user),
           );
         }
         return null;

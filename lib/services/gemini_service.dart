@@ -395,7 +395,7 @@ $travelPlanText
     }
   }
 
-  /// Dynamically fetch image URL for a place using Unsplash API based on place name
+  /// Dynamically fetch image URL for a place using Picsum API (more reliable than Unsplash)
   Future<String?> _fetchPlaceImageUrl(
     String placeName,
     String destination,
@@ -403,15 +403,14 @@ $travelPlanText
     try {
       final cleanName = placeName.toLowerCase().trim();
 
-      // Generate dynamic image URL using Unsplash with place name as search query
-      // This fetches the best/most relevant image for any destination place
-      final searchQuery = Uri.encodeComponent(
-        '$cleanName $destination landmark',
-      );
-      final imageUrl = 'https://source.unsplash.com/600x400/?$searchQuery';
+      // Generate deterministic image ID based on place name hash
+      // Using Picsum.photos which is more reliable than Unsplash
+      final placeHash = cleanName.hashCode.abs();
+      final imageUrl =
+          'https://picsum.photos/600/400?random=${placeHash % 100}';
 
       print('🖼️ Dynamically fetching image for: $placeName');
-      print('   Search query: $searchQuery');
+      print('   Place name: $cleanName');
       print('   URL: $imageUrl');
 
       return imageUrl;
@@ -492,7 +491,7 @@ Be specific with times, place names, and costs in INR.
       // Parse the response into individual day plans
       final List<String> dayPlans = [];
       final days = response.split(RegExp(r'Day \d+:'));
-      
+
       for (int i = 1; i < days.length; i++) {
         final dayContent = days[i].trim();
         if (dayContent.isNotEmpty) {
@@ -828,10 +827,10 @@ IMPORTANT: Use REAL place names and restaurants in $destination. Be very specifi
 
       // Parse into individual day cards
       final List<String> dayPlans = [];
-      
+
       // Split by "Day" pattern
       final dayBlocks = response.split(RegExp(r'(?=Day\s+\d+:)'));
-      
+
       for (final block in dayBlocks) {
         final trimmed = block.trim();
         if (trimmed.isNotEmpty && trimmed.toLowerCase().startsWith('day')) {
